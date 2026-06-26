@@ -232,7 +232,7 @@ def draw_detection(image, bboxs, scores, labels):
     """
     return draw_results(image, bboxs, scores, labels)
 
-def draw_tracking(image, bboxs, scores, labels, tracker_ids):
+def draw_tracking(image, bboxs, scores, labels, tracker_ids, lane_names=None):
     """
     Draw tracked detections with tracker ids on the image.
     """
@@ -242,12 +242,38 @@ def draw_tracking(image, bboxs, scores, labels, tracker_ids):
     font_scale = 0.55
     thickness = 2
 
-    for bbox, score, label, tracker_id in zip(bboxs, scores, labels, tracker_ids):
+    if lane_names is None:
+        lane_names = [""] * len(bboxs)
+
+    for bbox, score, label, tracker_id, lane_name in zip(
+        bboxs,
+        scores,
+        labels,
+        tracker_ids,
+        lane_names,
+    ):
         x_min, y_min, x_max, y_max = map(int, bbox)
         cv2.rectangle(img, (x_min, y_min), (x_max, y_max), color_green, 2)
 
-        text = f"#{tracker_id} {label}: {int(score * 100)}%"
-        (tw, th), baseline = cv2.getTextSize(text, font, font_scale, thickness)
+        top_text = f"{lane_name} | {label}: {int(score * 100)}%" if lane_name else f"{label}: {int(score * 100)}%"
+        id_text = f"#{tracker_id}"
+
+        cx = int((x_min + x_max) / 2)
+        cy = int((y_min + y_max) / 2)
+
+        (id_tw, id_th), id_baseline = cv2.getTextSize(id_text, font, 0.8, thickness)
+        cv2.putText(
+            img,
+            id_text,
+            (cx - id_tw // 2, cy + id_th // 2),
+            font,
+            0.8,
+            color_green,
+            thickness,
+            cv2.LINE_AA,
+        )
+
+        (tw, th), baseline = cv2.getTextSize(top_text, font, font_scale, thickness)
         cv2.rectangle(
             img,
             (x_min, y_min - th - baseline - 6),
@@ -257,7 +283,7 @@ def draw_tracking(image, bboxs, scores, labels, tracker_ids):
         )
         cv2.putText(
             img,
-            text,
+            top_text,
             (x_min + 4, y_min - baseline - 3),
             font,
             font_scale,

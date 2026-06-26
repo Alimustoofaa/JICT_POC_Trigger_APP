@@ -191,11 +191,12 @@ class DetectionTrigger:
 		scores: list,
 		labels: list,
 		tracker_ids: list,
-	) -> tuple[list, list, list, list]:
+	) -> tuple[list, list, list, list, list]:
 		filtered_bboxs = []
 		filtered_scores = []
 		filtered_labels = []
 		filtered_tracker_ids = []
+		filtered_lane_names = []
 
 		for lane_name, polygon_points in self.polygon_points.items():
 			lane_bboxs, lane_scores, lane_labels = filter_bboxes_in_polygon(
@@ -231,8 +232,9 @@ class DetectionTrigger:
 				filtered_scores.append(lane_score)
 				filtered_labels.append(lane_label)
 				filtered_tracker_ids.append(tracker_id)
+				filtered_lane_names.append(lane_name)
 
-		return filtered_bboxs, filtered_scores, filtered_labels, filtered_tracker_ids
+		return filtered_bboxs, filtered_scores, filtered_labels, filtered_tracker_ids, filtered_lane_names
 
 	def open_camera(self, camera_id: str):
 		camera = self.cameras.get(camera_id)
@@ -282,7 +284,7 @@ class DetectionTrigger:
 					scores=scores,
 					labels=labels,
 				)
-				filtered_bboxs, filtered_scores, filtered_labels, filtered_tracker_ids = self.filter_detections_in_polygons(
+				filtered_bboxs, filtered_scores, filtered_labels, filtered_tracker_ids, filtered_lane_names = self.filter_detections_in_polygons(
 					bboxs=tracked_bboxs,
 					scores=tracked_scores,
 					labels=tracked_labels,
@@ -296,6 +298,7 @@ class DetectionTrigger:
 						filtered_scores,
 						filtered_labels,
 						filtered_tracker_ids,
+						filtered_lane_names,
 					)
 				else:
 					frame = draw_detection(frame, filtered_bboxs, filtered_scores, filtered_labels)
