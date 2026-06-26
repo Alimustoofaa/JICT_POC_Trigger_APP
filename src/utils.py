@@ -132,7 +132,15 @@ def draw_polygon(image, polygon_points, color=(255, 153, 31), thickness=3):
 
 	return img
 
-def draw_polygons(image, polygons, color=(255, 153, 31), thickness=3, show_label=True):
+def draw_polygons(
+    image,
+    polygons,
+    color=(255, 153, 31),
+    thickness=3,
+    show_label=True,
+    active_labels=None,
+    active_color=(0, 0, 255),
+):
 	"""
 	Draw multiple labeled polygons on the image.
 
@@ -142,12 +150,16 @@ def draw_polygons(image, polygons, color=(255, 153, 31), thickness=3, show_label
 		color (Tuple[int, int, int]): BGR color
 		thickness (int): Line thickness
 		show_label (bool): Draw polygon label text near the first point
+		active_labels (Iterable[str] | None): Polygon labels to highlight
+		active_color (Tuple[int, int, int]): BGR color for active polygons
 	"""
 	img = image.copy()
+	active_labels = set(active_labels or [])
 
 	for label, polygon_points in polygons.items():
+		polygon_color = active_color if label in active_labels else color
 		pts = array(polygon_points, int32).reshape((-1, 1, 2))
-		cv2.polylines(img, [pts], isClosed=True, color=color, thickness=thickness)
+		cv2.polylines(img, [pts], isClosed=True, color=polygon_color, thickness=thickness)
 
 		if show_label:
 			text_x, text_y = pts[0][0]
@@ -157,7 +169,7 @@ def draw_polygons(image, polygons, color=(255, 153, 31), thickness=3, show_label
 				(int(text_x), int(text_y) - 10),
 				cv2.FONT_HERSHEY_SIMPLEX,
 				0.8,
-				color,
+				polygon_color,
 				2,
 				cv2.LINE_AA
 			)

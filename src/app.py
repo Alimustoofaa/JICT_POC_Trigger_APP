@@ -1,4 +1,5 @@
 import os
+import time
 import cv2
 import numpy as np
 from pathlib import Path
@@ -18,6 +19,11 @@ except ImportError:
 
 try: from src.helper import load_polygon_config, initializetion_camera
 except: from helper import load_polygon_config, initializetion_camera
+
+try: from src.camera.hikvision.stream import FFmpegRTSPCamera
+except ImportError:
+	try: from camera.hikvision.stream import FFmpegRTSPCamera
+	except ImportError: FFmpegRTSPCamera = None
  
 try: from src.utils import get_parent_directory, is_rtsp_or_local_file, \
 	calculate_bbox_original, image_letterbox, filter_bboxes_in_polygon, \
@@ -45,6 +51,8 @@ class DetectionTrigger:
 		self.polygon_points = load_polygon_config(self.virtual_lane_config_path)
 		self.cameras = self.initializetion_camera()
 		self.camera_streams = {}
+		self.max_failed_reads = 30
+		self.reconnect_delay = 1.0
 		self.model_config = self.__load_model_config()
 		self.devices = self.__get_inference_devices()
 		self.__load_model()
@@ -245,9 +253,23 @@ class DetectionTrigger:
 		print(f"{camera_id} camera RTSP URL:")
 		print(stream_url)
 
-		cap = cv2.VideoCapture(stream_url)
-		if not cap.isOpened():
-			raise RuntimeError(f"Failed to open camera stream: {stream_url}")
+		use_ffmpeg = stream_url.startswith("rtsp://") and FFmpegRTSPCamera is not None
+
+		if use_ffmpeg:
+			cap = FFmpegRTSPCamera(
+				rtsp_url=stream_url,
+				camera_id=camera_id,
+				width=int(camera.config.get("width", 1920)),
+				height=int(camera.config.get("height", 1080)),
+				fps=int(camera.config.get("fps", 15)),
+				read_timeout=int(camera.config.get("read_timeout", 10)),
+			)
+			cap.open()
+		else:
+			cap = cv2.VideoCapture(stream_url)
+			cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+			if not cap.isOpened():
+				raise RuntimeError(f"Failed to open camera stream: {stream_url}")
 
 		self.camera_streams[camera_id] = cap
 		return cap
@@ -255,8 +277,29 @@ class DetectionTrigger:
 	def close_camera(self, camera_id: str):
 		cap = self.camera_streams.pop(camera_id, None)
 		if cap is not None:
-			cap.release()
+			if hasattr(cap, "release"):
+				cap.release()
+			elif hasattr(cap, "close"):
+				cap.close()
 		cv2.destroyAllWindows()
+
+	def read_camera_frame(self, camera_id: str):
+		cap = self.camera_streams.get(camera_id)
+		if cap is None:
+			return False, None
+
+		if hasattr(cap, "read") and hasattr(cap, "close") and not hasattr(cap, "release"):
+			frame = cap.read()
+			return frame is not None, frame
+
+		ret, frame = cap.read()
+		return ret, frame
+
+	def reopen_camera(self, camera_id: str):
+		print(f"Reconnecting camera: {camera_id}")
+		self.close_camera(camera_id)
+		time.sleep(self.reconnect_delay)
+		return self.open_camera(camera_id)
   
 		
 	def trigger_process(
@@ -266,13 +309,20 @@ class DetectionTrigger:
 		filter_classes: list,
 	):
 		camera = self.cameras.get(camera_id)
-		cap = self.open_camera(camera_id)
+		self.open_camera(camera_id)
+		failed_reads = 0
 
 		try:
 			while self.app_isrunning:
-				ret, frame = cap.read()
-				if type(frame) is not np.ndarray or frame is None:
+				ret, frame = self.read_camera_frame(camera_id)
+				if not ret or type(frame) is not np.ndarray or frame is None:
+					failed_reads += 1
+					if failed_reads >= self.max_failed_reads:
+						self.reopen_camera(camera_id)
+						failed_reads = 0
 					continue
+				failed_reads = 0
+
 				bboxs, scores, labels = self.detection(
 					image=frame,
 					model=model,
@@ -302,7 +352,11 @@ class DetectionTrigger:
 					)
 				else:
 					frame = draw_detection(frame, filtered_bboxs, filtered_scores, filtered_labels)
-				frame = draw_polygons(frame, self.polygon_points)
+				frame = draw_polygons(
+					frame,
+					self.polygon_points,
+					active_labels=set(filtered_lane_names),
+				)
 				cv2.imshow(f"Camera {camera_id}", frame)
 
 				if cv2.waitKey(1) & 0xFF == ord("q"):
