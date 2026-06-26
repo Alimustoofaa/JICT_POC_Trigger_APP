@@ -1,0 +1,6 @@
+numpy==1.26.4
+opencv-python==4.10.0.84
+onnxruntime==1.19.2
+pydantic==1.10.18
+shapely==2.1.2
+supervision===0.29.1

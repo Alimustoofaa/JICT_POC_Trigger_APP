@@ -1,0 +1,23 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.env/
+.venv/
+venv/
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+
+# Editor / OS files
+.DS_Store
+Thumbs.db
+
+# OpenCV / runtime artifacts
+*.log
+
+# Local directory
+config/*
+models/*
