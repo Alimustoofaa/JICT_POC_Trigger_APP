@@ -48,6 +48,11 @@ class AxisCamera(BaseCamera):
 
         self.request(f"{PTZ_ENDPOINT}?zoom={round(level)}", method="GET")
 
+    def apply_default_view(self) -> None:
+        default_zoom = self.config.get("default_zoom")
+        if default_zoom is not None:
+            self.set_zoom(int(default_zoom))
+
     def _relative_zoom(self, amount: int) -> None:
         if not isinstance(amount, (int, float)) or amount < -9999 or amount > 9999:
             raise CameraError(

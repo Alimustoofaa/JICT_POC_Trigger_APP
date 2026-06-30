@@ -70,6 +70,51 @@ class HikvisionCamera(BaseCamera):
     def zoom_out(self, speed: int = 20) -> None:
         self.continuous_move(zoom=-abs(speed))
 
+    def apply_default_view(self) -> None:
+        if not self.config.get("ptz_enabled", False):
+            return
+
+        zoom_speed = int(self.config.get("default_zoom_speed", 0))
+        zoom_duration = float(self.config.get("default_zoom_duration", 0))
+        pan_speed = int(self.config.get("default_pan_speed", 0))
+        pan_duration = float(self.config.get("default_pan_duration", 0))
+        tilt_speed = int(self.config.get("default_tilt_speed", 0))
+        tilt_duration = float(self.config.get("default_tilt_duration", 0))
+
+        has_default_ptz = any(
+            (
+                pan_speed,
+                pan_duration,
+                tilt_speed,
+                tilt_duration,
+                zoom_speed,
+                zoom_duration,
+            )
+        )
+        if not has_default_ptz:
+            return
+
+        # Stop any ongoing PTZ movement first only when PTZ defaults are configured.
+        self.stop()
+
+        if pan_speed:
+            self.continuous_move(pan=pan_speed)
+            from time import sleep
+            sleep(max(0.0, pan_duration))
+            self.stop()
+
+        if tilt_speed:
+            self.continuous_move(tilt=tilt_speed)
+            from time import sleep
+            sleep(max(0.0, tilt_duration))
+            self.stop()
+
+        if zoom_speed:
+            self.continuous_move(zoom=zoom_speed)
+            from time import sleep
+            sleep(max(0.0, zoom_duration))
+            self.stop()
+
     def _assert_move_range(self, axis: str, value: int) -> None:
         if not isinstance(value, (int, float)) or value < -100 or value > 100:
             raise CameraError(

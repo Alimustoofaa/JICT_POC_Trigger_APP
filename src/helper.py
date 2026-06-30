@@ -98,19 +98,22 @@ def load_polygon_config(
         if not isinstance(shape, dict):
             continue
 
-        if shape.get("shape_type") != "polygon":
+        shape_type = shape.get("shape_type")
+        if shape_type not in {"polygon", "rectangle"}:
             continue
 
         label = shape.get("label")
         points = shape.get("points")
 
-        if not label or not isinstance(points, list):
+        if not label or not isinstance(points, list) or len(points) < 3:
             continue
 
         polygons[label] = points
 
     if not polygons:
-        raise PolygonConfigError("No polygon shapes found in config")
+        raise PolygonConfigError(
+            "No polygon/rectangle shapes found in config"
+        )
 
     return polygons
 
