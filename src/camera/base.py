@@ -4,7 +4,13 @@ from base64 import b64encode
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote, urlencode, urljoin
-from urllib.request import Request, urlopen
+from urllib.request import (
+    HTTPBasicAuthHandler,
+    HTTPDigestAuthHandler,
+    HTTPPasswordMgrWithDefaultRealm,
+    Request,
+    build_opener,
+)
 
 
 class CameraError(Exception):
@@ -111,20 +117,29 @@ class BaseCamera:
         headers: dict[str, str] | None = None,
         body: bytes | None = None,
     ) -> bytes:
-        request_headers = {
-            "Authorization": self.get_auth_header(),
-            **(headers or {}),
-        }
+        url = self.build_url(pathname)
+        password_manager = HTTPPasswordMgrWithDefaultRealm()
+        password_manager.add_password(
+            realm=None,
+            uri=url,
+            user=self.config["username"],
+            passwd=self.config["password"],
+        )
+
+        opener = build_opener(
+            HTTPDigestAuthHandler(password_manager),
+            HTTPBasicAuthHandler(password_manager),
+        )
 
         request = Request(
-            self.build_url(pathname),
+            url,
             data=body,
-            headers=request_headers,
+            headers=headers or {},
             method=method,
         )
 
         try:
-            with urlopen(request) as response:
+            with opener.open(request, timeout=10) as response:
                 return response.read()
         except Exception as error:
             raise CameraError(
@@ -145,6 +160,10 @@ class BaseCamera:
             "stream": True,
             "snapshot": True,
         }
+
+    def apply_default_view(self) -> None:
+        """Apply optional default camera positioning from config."""
+        return None
 
     def to_dict(self) -> dict[str, Any]:
         return {
