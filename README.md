@@ -82,7 +82,7 @@ Current trigger model:
 The current pipeline in [src/app.py](/home/ali/Halotec/Source_Code/JICT/DEV/POC_CRANE/src/app.py:1):
 
 - initializes all configured cameras
-- opens the `trigger` camera stream
+- opens the configured camera stream
 - loads polygon lanes from `config/lane.json`
 - runs detection on each frame
 - optionally tracks detections with `supervision.ByteTrack`
@@ -98,6 +98,40 @@ Example printed output:
 ```text
 lane_1 | object=container | confidence=0.92
 ```
+
+## Trigger Front Process
+
+Front trigger process concept:
+
+1. Stream camera `front_1`, `front_2`, `front_3`, `front_4`
+2. Merge camera frames into one output frame
+3. Run object detection for `container`
+4. Check whether detected object is inside the configured virtual line / polygon
+5. Determine the lane result for camera `1 / 2 / 3 / 4`
+6. When object is inside the virtual line trigger area, capture image from the process output / camera view
+
+Current related outputs in the project:
+
+- live process runtime: [src/app.py](/home/ali/Halotec/Source_Code/JICT/DEV/POC_CRANE/src/app.py:1)
+- front image collector: [get_front_image.py](/home/ali/Halotec/Source_Code/JICT/DEV/POC_CRANE/get_front_image.py:1)
+- saved image capture: `captures/app/` or `captures/front/`
+- saved output video: `outputs/video/`
+
+## Trigger Rear Process
+
+Rear trigger process concept:
+
+1. Stream camera `rear_1`, `rear_2`, `rear_3`, `rear_4`
+2. Merge camera frames into one output frame
+3. Run object detection for `container`
+4. Check whether detected object is inside the configured virtual line / polygon
+5. Determine the lane result for camera `1 / 2 / 3 / 4`
+6. When object is inside the virtual line trigger area, capture image from the process output / camera view
+
+Current related outputs in the project:
+
+- rear image collector: [get_rear_image.py](/home/ali/Halotec/Source_Code/JICT/DEV/POC_CRANE/get_rear_image.py:1)
+- saved image capture: `captures/rear/`
 
 ## Run
 
